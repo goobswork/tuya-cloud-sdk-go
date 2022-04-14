@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 
@@ -34,37 +33,13 @@ func GetBizSignV2(req *http.Request, token string) string {
 		contentSha256 = GetSha256([]byte(""))
 	}
 
-	headers := ""
-	signHeaderKeys := req.Header.Get("Signature-Headers")
-	if signHeaderKeys != "" {
-		keys := strings.Split(signHeaderKeys, ":")
-		for _, key := range keys {
-			headers += key + ":" + req.Header.Get(key) + "\n"
-		}
-	}
+	headers := getHeaderStr(req)
+	urlStr := getUrlStr(req)
 
-	uri := req.URL.Path
-	keys := make([]string, 0, 10)
-	form, err := url.ParseQuery(req.URL.RawQuery)
-	if err == nil {
-		for key := range form {
-			keys = append(keys, key)
-		}
-	}
-	if len(keys) > 0 {
-		uri += "?"
-		sort.Strings(keys)
-		for _, keyName := range keys {
-			value := form.Get(keyName)
-			uri += keyName + "=" + value + "&"
-		}
-		uri = strings.TrimSuffix(uri, "&")
-	}
-
-	stringToSign := req.Method + "\n" + contentSha256 + "\n" + headers + "\n" + uri
-	nonce := req.Header.Get("nonce")
+	stringToSign := req.Method + "\n" + contentSha256 + "\n" + headers + "\n" + urlStr
+	// nonce := req.Header.Get("nonce")
 	t := req.Header.Get("t")
-	str := config.AccessID + token + t + nonce + stringToSign
+	str := config.AccessID + token + t + stringToSign
 	sign := strings.ToUpper(HmacSha256(str, config.AccessKey))
 	return sign
 }
@@ -91,4 +66,40 @@ func HmacSha256(data, key string) string {
 	// Get result and encode as hexadecimal string
 	sha := hex.EncodeToString(h.Sum(nil))
 	return sha
+}
+
+func getHeaderStr(req *http.Request) string {
+	signHeaderKeys := req.Header.Get("Signature-Headers")
+	if signHeaderKeys == "" {
+		return ""
+	}
+	keys := strings.Split(signHeaderKeys, ":")
+	headers := ""
+	for _, key := range keys {
+		headers += key + ":" + req.Header.Get(key) + "\n"
+	}
+	return headers
+}
+
+func getUrlStr(req *http.Request) string {
+	uri := req.URL.Path
+	keys := make([]string, 0, 10)
+
+	query := req.URL.Query()
+	for key, _ := range query {
+		keys = append(keys, key)
+	}
+	if len(keys) > 0 {
+		uri += "?"
+		sort.Strings(keys)
+		for _, keyName := range keys {
+			value := query.Get(keyName)
+			uri += keyName + "=" + value + "&"
+		}
+	}
+
+	if uri[len(uri)-1] == '&' {
+		uri = uri[:len(uri)-1]
+	}
+	return uri
 }
