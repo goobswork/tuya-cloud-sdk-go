@@ -53,7 +53,7 @@ func AddBizHeader(req *http.Request, token, timestamp string) {
 	req.Header.Add("access_token", token)
 	req.Header.Add("sign_method", "HMAC-SHA256")
 	req.Header.Add("t", timestamp)
-	sign := GetEasySignV2(req)
+	sign := GetBizSignV2(req, token)
 	req.Header.Set("sign", sign)
 }
 
@@ -63,7 +63,7 @@ func AddBodyBizHeader(req *http.Request, token, timestamp string) {
 	req.Header.Add("sign_method", "HMAC-SHA256")
 	req.Header.Add("t", timestamp)
 	req.Header.Add("Content-Type", "application/json")
-	sign := GetEasySignV2(req)
+	sign := GetBizSignV2(req, token)
 	req.Header.Set("sign", sign)
 }
 
